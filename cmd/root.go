@@ -17,7 +17,7 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "scriptor",
+	Use:   "chorus",
 	Short: "A brief description of your application",
 	Long: `A longer description that spans multiple lines and likely contains
 examples and usage of using your application. For example:
@@ -38,20 +38,14 @@ to quickly create a Cobra application.`,
 		agent2 := chorus.NewAgent(&client, chorus.WithName("agent2"), chorus.WithModel("ai/gpt-oss"), chorus.WithReasoningEffort(openai.ReasoningEffortMedium))
 
 		agent.SystemMessage(`
-			You are a helpful assistant. 
-			You are a teacher of the Polish language. 
-			You are given a topic and you need to come up with a script for a lesson. 
-			Speak English when explaining...
+			You are a helpful assistant.
 		`)
 		agent2.SystemMessage(`
-			You are a helpful assistant. You are a professor of Polish whose job is to evaluate the lesson and give feedback to the teacher.
-			Speak English to the teacher.
-			You are given a topic and you need to come up with a script for a lesson. 
-			Speak English when explaining...
+			You are a helpful assistant. 
 		`)
 
 		conversation := chorus.NewConversation(ctx, agent, agent2)
-		conversation.Start("Please come up with a dialogue for a Polish lesson for a beginner converation. This should be no longer than 10 lines of dialogue.")
+		conversation.Start("Ask a question to the user and wait for the answer.")
 
 	},
 }
@@ -70,7 +64,7 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.scriptor.yaml)")
+	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.chorus.yaml)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
