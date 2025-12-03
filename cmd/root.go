@@ -4,15 +4,11 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"log"
 	"os"
 
-	chorus "github.com/standrze/chorus/pkg/agent"
-
-	"context"
-
-	"github.com/openai/openai-go/v3"
-	"github.com/openai/openai-go/v3/option"
 	"github.com/spf13/cobra"
+	app "github.com/standrze/chorus/internal"
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -28,25 +24,10 @@ to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
-		client := openai.NewClient(
-			option.WithBaseURL("http://localhost:12434/engines/llama.cpp/v1"),
-		)
-
-		ctx := context.Background()
-
-		agent := chorus.NewAgent(&client, chorus.WithName("agent"), chorus.WithModel("ai/gpt-oss"), chorus.WithReasoningEffort(openai.ReasoningEffortMedium))
-		agent2 := chorus.NewAgent(&client, chorus.WithName("agent2"), chorus.WithModel("ai/gpt-oss"), chorus.WithReasoningEffort(openai.ReasoningEffortMedium))
-
-		agent.SystemMessage(`
-			You are a helpful assistant.
-		`)
-		agent2.SystemMessage(`
-			You are a helpful assistant. 
-		`)
-
-		conversation := chorus.NewConversation(ctx, agent, agent2)
-		conversation.Start("Ask a question to the user and wait for the answer.")
-
+		err := app.Start()
+		if err != nil {
+			log.Fatalf("Failed to start app: %v", err)
+		}
 	},
 }
 
