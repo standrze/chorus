@@ -39,7 +39,9 @@ func Start() error {
 	fmt.Println(result.Choices[0].Message.Content)
 
 	conversation := chorus.NewConversation(ctx, agent, agent2)
-	conversation.Start("Ask a question to the user and wait for the answer.")
+	if err := conversation.Start("Ask a question to the user and wait for the answer."); err != nil {
+		return fmt.Errorf("failed to start conversation: %v", err)
+	}
 
 	return nil
 }
