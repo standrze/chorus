@@ -31,7 +31,7 @@
 
 Right now the default command brings up two agents:
 
-- 👨‍🏫 **Teacher agent** – writes a short beginner Polish lesson / dialogue
+- 👨‍🏫 **Teacher agent** – writes educational content
 - 👨‍🔬 **Professor agent** – reviews and comments on the teacher's output
 
 The logic for a real back‑and‑forth conversation is intentionally minimal so you can customize it however you like.
@@ -75,7 +75,7 @@ Then simply run:
 ./chorus
 ```
 
-This will create a client, construct the two agents and a `Conversation`, and call `Conversation.Start` with a prompt for a short Polish dialogue.
+This will create a client, construct the two agents and a `Conversation`, and call `Conversation.Start` with a prompt to begin the conversation.
 
 > 💡 **Note:** `Conversation.Start` is currently just a stub that validates there are at least two agents. It's the main place you'll extend the project to actually orchestrate multi‑turn agent chatter.
 

@@ -8,10 +8,13 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	app "github.com/standrze/chorus/internal"
 )
 
 // rootCmd represents the base command when called without any subcommands
+var cfg app.Config
+
 var rootCmd = &cobra.Command{
 	Use:   "chorus",
 	Short: "A brief description of your application",
@@ -24,7 +27,7 @@ to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
-		err := app.Start()
+		err := app.Start(&cfg)
 		if err != nil {
 			log.Fatalf("Failed to start app: %v", err)
 		}
@@ -44,9 +47,15 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
+	//rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.chorus.yaml)")
+	viper.AddConfigPath(".")
+	viper.SetConfigName("config")
+	viper.SetConfigType("json")
+	viper.ReadInConfig()
 
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.chorus.yaml)")
-
+	if err := viper.Unmarshal(&cfg); err != nil {
+		log.Fatalf("Unable to decode config into struct: %v", err)
+	}
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")

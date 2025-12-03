@@ -42,7 +42,7 @@ func (a *Agent) UserMessage(message string) {
 	a.Messages = append(a.Messages, openai.UserMessage(message))
 }
 
-func (a *Agent) Send(ctx context.Context, options ...SendOption) (*openai.ChatCompletion, error) {
+func (a *Agent) Generate(ctx context.Context, options ...SendOption) (*openai.ChatCompletion, error) {
 	for _, opt := range options {
 		opt(a)
 	}
@@ -74,6 +74,12 @@ func (a *Agent) AddFunctionTool(tool FunctionTool) {
 func WithUserMessage(prompt string) SendOption {
 	return func(a *Agent) {
 		a.Messages = append(a.Messages, openai.UserMessage(prompt))
+	}
+}
+
+func WithSystemMessage(prompt string) SendOption {
+	return func(a *Agent) {
+		a.Messages = append(a.Messages, openai.SystemMessage(prompt))
 	}
 }
 
