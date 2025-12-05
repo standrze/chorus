@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/packages/param"
@@ -30,6 +31,7 @@ type FunctionTool struct {
 	Description string
 	Parameters  openai.FunctionParameters
 	Type        string
+	Func        interface{}
 }
 
 type SendOption func(*Agent)
@@ -59,6 +61,14 @@ func (a *Agent) Generate(ctx context.Context, options ...SendOption) (*openai.Ch
 }
 
 func (a *Agent) AddFunctionTool(tool FunctionTool) {
+	if tool.Parameters == nil && tool.Func != nil {
+		schema, err := GenerateSchema(tool.Func)
+		if err != nil {
+			panic(fmt.Sprintf("failed to generate schema for tool %s: %v", tool.Name, err))
+		}
+		tool.Parameters = schema
+	}
+
 	a.Tools = append(a.Tools, openai.ChatCompletionToolUnionParam{
 		OfFunction: &openai.ChatCompletionFunctionToolParam{
 			Function: openai.FunctionDefinitionParam{
@@ -110,6 +120,14 @@ func WithSeed(seed int) func(*Agent) {
 func WithFunctionTools(tools ...FunctionTool) func(*Agent) {
 	union := []openai.ChatCompletionToolUnionParam{}
 	for _, tool := range tools {
+		if tool.Parameters == nil && tool.Func != nil {
+			schema, err := GenerateSchema(tool.Func)
+			if err != nil {
+				panic(fmt.Sprintf("failed to generate schema for tool %s: %v", tool.Name, err))
+			}
+			tool.Parameters = schema
+		}
+
 		union = append(union, openai.ChatCompletionToolUnionParam{
 			OfFunction: &openai.ChatCompletionFunctionToolParam{
 				Function: openai.FunctionDefinitionParam{
