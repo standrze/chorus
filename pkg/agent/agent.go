@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"time"
 	"reflect"
 
 	"github.com/openai/openai-go/v3"
@@ -28,6 +30,11 @@ type Agent struct {
 	Seed            param.Opt[int64]
 	// local registry of functions for execution
 	functions map[string]interface{}
+
+	// Usage tracking
+	TotalTokens      int64
+	PromptTokens     int64
+	CompletionTokens int64
 }
 
 type FunctionTool struct {
@@ -61,7 +68,32 @@ func (a *Agent) Generate(ctx context.Context, options ...SendOption) (*openai.Ch
 		Tools:           a.Tools,
 	})
 
+	if err == nil && result != nil {
+		a.TotalTokens += result.Usage.TotalTokens
+		a.PromptTokens += result.Usage.PromptTokens
+		a.CompletionTokens += result.Usage.CompletionTokens
+		logTokenUsage(a)
+	}
+
 	return result, err
+}
+
+func logTokenUsage(a *Agent) {
+	// Simple append to file
+	// We handle error silently or log to stderr to avoid breaking flow
+	f, err := os.OpenFile("token_usage.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to open token_usage.log: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	entry := fmt.Sprintf("[%s] Agent: %s, Role: %s, Total: %d (Prompt: %d, Completion: %d)\n",
+		time.Now().Format(time.RFC3339), a.Name, a.Role, a.TotalTokens, a.PromptTokens, a.CompletionTokens)
+
+	if _, err := f.WriteString(entry); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to write to token_usage.log: %v\n", err)
+	}
 }
 
 // CallFunction executes a registered tool function by name, unmarshaling the JSON arguments.
@@ -158,6 +190,11 @@ func (a *Agent) AddFunctionTool(tool FunctionTool) {
 			Type: "function",
 		},
 	})
+
+	if a.functions == nil {
+		a.functions = make(map[string]interface{})
+	}
+	a.functions[tool.Name] = tool.Func
 }
 
 func WithUserMessage(prompt string) SendOption {
@@ -219,6 +256,7 @@ func WithFunctionTools(tools ...FunctionTool) func(*Agent) {
 				Type: "function",
 			},
 		})
+		funcs[tool.Name] = tool.Func
 	}
 
 	return func(a *Agent) {
