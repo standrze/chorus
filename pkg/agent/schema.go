@@ -10,7 +10,7 @@ import (
 
 // GenerateSchema inspects a function's argument (which must be a struct)
 // and generates a JSON schema compatible with OpenAI's FunctionParameters.
-func GenerateSchema(f interface{}) (openai.FunctionParameters, error) {
+func GenerateSchema(f any) (openai.FunctionParameters, error) {
 	t := reflect.TypeOf(f)
 	if t.Kind() != reflect.Func {
 		return nil, fmt.Errorf("input is not a function")
@@ -25,7 +25,7 @@ func GenerateSchema(f interface{}) (openai.FunctionParameters, error) {
 		return nil, fmt.Errorf("function argument must be a struct")
 	}
 
-	properties := make(map[string]interface{})
+	properties := make(map[string]any)
 	required := []string{}
 
 	for i := 0; i < argType.NumField(); i++ {
@@ -70,7 +70,7 @@ func GenerateSchema(f interface{}) (openai.FunctionParameters, error) {
 		}
 	}
 
-	schema := map[string]interface{}{
+	schema := map[string]any{
 		"type":       "object",
 		"properties": properties,
 		"required":   required,
@@ -79,23 +79,25 @@ func GenerateSchema(f interface{}) (openai.FunctionParameters, error) {
 	return openai.FunctionParameters(schema), nil
 }
 
-func getTypeSchema(t reflect.Type) (map[string]interface{}, error) {
+func getTypeSchema(t reflect.Type) (map[string]any, error) {
 	switch t.Kind() {
 	case reflect.String:
-		return map[string]interface{}{"type": "string"}, nil
+		return map[string]any{"type": "string"}, nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return map[string]interface{}{"type": "integer"}, nil
+		return map[string]any{"type": "integer"}, nil
 	case reflect.Float32, reflect.Float64:
-		return map[string]interface{}{"type": "number"}, nil
+		return map[string]any{"type": "number"}, nil
 	case reflect.Bool:
-		return map[string]interface{}{"type": "boolean"}, nil
+		return map[string]any{"type": "boolean"}, nil
+	case reflect.Pointer:
+		return getTypeSchema(t.Elem())
 	case reflect.Slice, reflect.Array:
 		elemSchema, err := getTypeSchema(t.Elem())
 		if err != nil {
 			return nil, err
 		}
-		return map[string]interface{}{
+		return map[string]any{
 			"type":  "array",
 			"items": elemSchema,
 		}, nil

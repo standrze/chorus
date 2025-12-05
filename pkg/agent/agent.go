@@ -31,7 +31,7 @@ type FunctionTool struct {
 	Description string
 	Parameters  openai.FunctionParameters
 	Type        string
-	Func        interface{}
+	Func        any
 }
 
 type SendOption func(*Agent)
