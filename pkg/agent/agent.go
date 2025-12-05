@@ -2,9 +2,7 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"reflect"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/packages/param"
@@ -35,7 +33,7 @@ type FunctionTool struct {
 	Description string
 	Parameters  openai.FunctionParameters
 	Type        string
-	Func        interface{}
+	Func        any
 }
 
 type SendOption func(*Agent)
@@ -148,13 +146,6 @@ func (a *Agent) AddFunctionTool(tool FunctionTool) {
 		tool.Parameters = schema
 	}
 
-	if tool.Func != nil {
-		if a.functions == nil {
-			a.functions = make(map[string]interface{})
-		}
-		a.functions[tool.Name] = tool.Func
-	}
-
 	a.Tools = append(a.Tools, openai.ChatCompletionToolUnionParam{
 		OfFunction: &openai.ChatCompletionFunctionToolParam{
 			Function: openai.FunctionDefinitionParam{
@@ -214,10 +205,6 @@ func WithFunctionTools(tools ...FunctionTool) func(*Agent) {
 				panic(fmt.Sprintf("failed to generate schema for tool %s: %v", tool.Name, err))
 			}
 			tool.Parameters = schema
-		}
-
-		if tool.Func != nil {
-			funcs[tool.Name] = tool.Func
 		}
 
 		union = append(union, openai.ChatCompletionToolUnionParam{
