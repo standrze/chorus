@@ -4,13 +4,18 @@ import (
 	"context"
 	"fmt"
 
+	"encoding/json"
+	"log"
+
 	"github.com/openai/openai-go/v3"
-	"github.com/openai/openai-go/v3/option"
 	chorus "github.com/standrze/chorus/pkg/agent"
+	"github.com/standrze/chorus/pkg/ai"
+	"github.com/standrze/chorus/pkg/mcp"
+	"github.com/standrze/chorus/pkg/tools"
 )
 
 type App struct {
-	client openai.Client
+	client ai.Client
 	agents []*chorus.Agent
 }
 
@@ -22,30 +27,92 @@ type AgentConfig struct {
 }
 
 type Config struct {
-	BaseURL string        `mapstructure:"base_url"`
-	APIKey  string        `mapstructure:"api_key"`
-	Agents  []AgentConfig `mapstructure:"agents"`
+	BaseURL    string             `mapstructure:"base_url"`
+	APIKey     string             `mapstructure:"api_key"`
+	Agents     []AgentConfig      `mapstructure:"agents"`
+	MCPServers []MCPServerConfig  `mapstructure:"mcp_servers"`
+	Debug      bool               `mapstructure:"-"`
+}
+
+type MCPServerConfig struct {
+	Command string   `mapstructure:"command"`
+	Args    []string `mapstructure:"args"`
 }
 
 func Start(cfg *Config) error {
 	app := &App{}
-	opts := []option.RequestOption{}
 
-	if cfg.BaseURL != "" {
-		opts = append(opts, option.WithBaseURL(cfg.BaseURL))
-	}
-
-	if cfg.APIKey != "" {
-		opts = append(opts, option.WithAPIKey(cfg.APIKey))
-	}
-
-	app.client = openai.NewClient(opts...)
+	app.client = ai.NewClient(cfg.BaseURL, cfg.APIKey)
 
 	ctx := context.Background()
+
+	// Initialize MCP Servers and fetch tools
+	var mcpFuncTools []tools.FunctionTool
+
+	for _, mcpCfg := range cfg.MCPServers {
+		client, err := mcp.NewClient(mcpCfg.Command, mcpCfg.Args)
+		if err != nil {
+			log.Printf("Failed to connect to MCP server %s: %v", mcpCfg.Command, err)
+			continue
+		}
+
+		if err := client.Initialize(); err != nil {
+			log.Printf("Failed to initialize MCP server %s: %v", mcpCfg.Command, err)
+			continue
+		}
+
+		mcpToolsList, err := client.ListTools()
+		if err != nil {
+			log.Printf("Failed to list tools from MCP server %s: %v", mcpCfg.Command, err)
+			continue
+		}
+
+		for _, t := range mcpToolsList {
+			// Capture client and name for closure
+			toolName := t.Name
+			mcpClient := client
+
+			// Define the wrapper function
+			wrapper := func(args json.RawMessage) (string, error) {
+				// unmarshal args to map[string]interface{}
+				var argsMap map[string]interface{}
+				if err := json.Unmarshal(args, &argsMap); err != nil {
+					return "", fmt.Errorf("invalid arguments: %v", err)
+				}
+				res, err := mcpClient.CallTool(toolName, argsMap)
+				if err != nil {
+					return "", err
+				}
+				// Combine content
+				var sb string
+				for _, c := range res.Content {
+					if c.Type == "text" {
+						sb += c.Text + "\n"
+					}
+				}
+				return sb, nil
+			}
+
+			// Convert InputSchema (json.RawMessage) to openai.FunctionParameters (map[string]interface{})
+			var params openai.FunctionParameters
+			if err := json.Unmarshal(t.InputSchema, &params); err != nil {
+				log.Printf("Failed to parse schema for tool %s: %v", t.Name, err)
+				continue
+			}
+
+			mcpFuncTools = append(mcpFuncTools, tools.FunctionTool{
+				Name:        t.Name,
+				Description: t.Description,
+				Parameters:  params,
+				Func:        wrapper, // The agent.CallFunction logic needs to handle this.
+			})
+		}
+	}
 
 	for _, agentCfg := range cfg.Agents {
 		agentOpts := []func(*chorus.Agent){
 			chorus.WithReasoningEffort(openai.ReasoningEffortMedium),
+			chorus.WithFunctionTools(mcpFuncTools...),
 		}
 
 		if agentCfg.Name != "" {
@@ -58,7 +125,7 @@ func Start(cfg *Config) error {
 			agentOpts = append(agentOpts, chorus.WithSystemMessage(agentCfg.SystemMessage))
 		}
 
-		agent := chorus.NewAgent(&app.client, agentOpts...)
+		agent := chorus.NewAgent(app.client, agentOpts...)
 		app.agents = append(app.agents, agent)
 	}
 

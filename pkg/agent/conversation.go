@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/openai/openai-go/v3"
+	"github.com/standrze/chorus/pkg/tools"
 )
 
 type Conversation struct {
@@ -63,13 +64,13 @@ type FinishArgs struct {
 
 func (c *Conversation) Run(objective string) (string, error) {
 	// Setup Orchestrator Tools
-	c.orchestrator.AddFunctionTool(FunctionTool{
+	c.orchestrator.AddFunctionTool(tools.FunctionTool{
 		Name:        "DelegateTask",
 		Description: "Delegate a task to a worker agent. Returns the worker's output.",
 		Func:        c.delegateTask,
 	})
 
-	c.orchestrator.AddFunctionTool(FunctionTool{
+	c.orchestrator.AddFunctionTool(tools.FunctionTool{
 		Name:        "CreatePlan",
 		Description: "Define the plan of execution.",
 		Func:        c.createPlan,
@@ -81,7 +82,7 @@ func (c *Conversation) Run(objective string) (string, error) {
 	finished := false
 	finalResult := ""
 
-	c.orchestrator.AddFunctionTool(FunctionTool{
+	c.orchestrator.AddFunctionTool(tools.FunctionTool{
 		Name:        "Finish",
 		Description: "Call this when the objective is met.",
 		Func: func(args FinishArgs) (string, error) {
