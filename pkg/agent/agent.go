@@ -27,7 +27,7 @@ type Agent struct {
 	ReasoningEffort openai.ReasoningEffort
 	Seed            param.Opt[int64]
 	// local registry of functions for execution
-	functions map[string]interface{}
+	functions map[string]any
 }
 
 type FunctionTool struct {
