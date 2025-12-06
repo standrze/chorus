@@ -3,6 +3,8 @@ package agent
 import (
 	"fmt"
 	"testing"
+
+	"github.com/standrze/chorus/pkg/tools"
 )
 
 func TestCallFunction(t *testing.T) {
@@ -10,7 +12,7 @@ func TestCallFunction(t *testing.T) {
 		Message string `json:"message"`
 	}
 
-	echoTool := FunctionTool{
+	echoTool := tools.FunctionTool{
 		Name: "Echo",
 		Func: func(args EchoArgs) (string, error) {
 			return "Echo: " + args.Message, nil
@@ -31,7 +33,7 @@ func TestCallFunction(t *testing.T) {
 
 func TestCallFunction_Error(t *testing.T) {
 	type FailArgs struct{}
-	failTool := FunctionTool{
+	failTool := tools.FunctionTool{
 		Name: "Fail",
 		Func: func(args FailArgs) (string, error) {
 			return "", fmt.Errorf("boom")
@@ -51,7 +53,7 @@ func TestCallFunction_Error(t *testing.T) {
 
 func TestCallFunction_Void(t *testing.T) {
 	type VoidArgs struct{}
-	voidTool := FunctionTool{
+	voidTool := tools.FunctionTool{
 		Name: "Void",
 		Func: func(args VoidArgs) error {
 			return nil
