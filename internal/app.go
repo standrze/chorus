@@ -6,11 +6,12 @@ import (
 
 	"encoding/json"
 	"log"
+	"os/exec"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/openai/openai-go/v3"
 	chorus "github.com/standrze/chorus/pkg/agent"
 	"github.com/standrze/chorus/pkg/ai"
-	"github.com/standrze/chorus/pkg/mcp"
 	"github.com/standrze/chorus/pkg/tools"
 )
 
@@ -50,27 +51,37 @@ func Start(cfg *Config) error {
 	var mcpFuncTools []tools.FunctionTool
 
 	for _, mcpCfg := range cfg.MCPServers {
-		client, err := mcp.NewClient(mcpCfg.Command, mcpCfg.Args)
+		// Create a new client
+		client := mcp.NewClient(&mcp.Implementation{
+			Name:    "chorus",
+			Version: "0.1.0",
+		}, nil)
+
+		// Connect to a server over stdin/stdout.
+		transport := &mcp.CommandTransport{
+			Command: exec.Command(mcpCfg.Command, mcpCfg.Args...),
+		}
+
+		session, err := client.Connect(ctx, transport, nil)
 		if err != nil {
 			log.Printf("Failed to connect to MCP server %s: %v", mcpCfg.Command, err)
 			continue
 		}
+		// Note: we can't easily defer session.Close() here inside a loop if we want the tools to work later.
+		// We probably need to keep the sessions alive.
+		// For this simple implementation, we'll let them run until the app exits.
+		// A proper implementation might store these sessions in the App struct and Close them on shutdown.
 
-		if err := client.Initialize(); err != nil {
-			log.Printf("Failed to initialize MCP server %s: %v", mcpCfg.Command, err)
-			continue
-		}
-
-		mcpToolsList, err := client.ListTools()
+		listToolsRes, err := session.ListTools(ctx, nil)
 		if err != nil {
 			log.Printf("Failed to list tools from MCP server %s: %v", mcpCfg.Command, err)
 			continue
 		}
 
-		for _, t := range mcpToolsList {
-			// Capture client and name for closure
+		for _, t := range listToolsRes.Tools {
+			// Capture session and name for closure
 			toolName := t.Name
-			mcpClient := client
+			mcpSession := session
 
 			// Define the wrapper function
 			wrapper := func(args json.RawMessage) (string, error) {
@@ -79,23 +90,44 @@ func Start(cfg *Config) error {
 				if err := json.Unmarshal(args, &argsMap); err != nil {
 					return "", fmt.Errorf("invalid arguments: %v", err)
 				}
-				res, err := mcpClient.CallTool(toolName, argsMap)
+
+				callParams := &mcp.CallToolParams{
+					Name:      toolName,
+					Arguments: argsMap,
+				}
+
+				res, err := mcpSession.CallTool(ctx, callParams)
 				if err != nil {
 					return "", err
 				}
+
+				if res.IsError {
+					return "", fmt.Errorf("tool execution failed")
+				}
+
 				// Combine content
 				var sb string
 				for _, c := range res.Content {
-					if c.Type == "text" {
-						sb += c.Text + "\n"
+					if textContent, ok := c.(*mcp.TextContent); ok {
+						sb += textContent.Text + "\n"
 					}
 				}
 				return sb, nil
 			}
 
-			// Convert InputSchema (json.RawMessage) to openai.FunctionParameters (map[string]interface{})
+			// Convert InputSchema (ToolInputSchema object) to openai.FunctionParameters
+			// The SDK's ToolInputSchema likely has a structure we can marshal to JSON and then unmarshal?
+			// Or we can just inspect it.
+			// Let's assume it's compatible or we can marshal/unmarshal.
+
+			schemaBytes, err := json.Marshal(t.InputSchema)
+			if err != nil {
+				log.Printf("Failed to marshal schema for tool %s: %v", t.Name, err)
+				continue
+			}
+
 			var params openai.FunctionParameters
-			if err := json.Unmarshal(t.InputSchema, &params); err != nil {
+			if err := json.Unmarshal(schemaBytes, &params); err != nil {
 				log.Printf("Failed to parse schema for tool %s: %v", t.Name, err)
 				continue
 			}
@@ -104,7 +136,7 @@ func Start(cfg *Config) error {
 				Name:        t.Name,
 				Description: t.Description,
 				Parameters:  params,
-				Func:        wrapper, // The agent.CallFunction logic needs to handle this.
+				Func:        wrapper,
 			})
 		}
 	}
