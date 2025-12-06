@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/openai/openai-go/v3"
+	"github.com/standrze/chorus/pkg/tools"
 )
 
 // MockClient is hard to mock because the Agent uses a real *openai.Client.
@@ -66,7 +67,7 @@ func TestConversation_ToolsRegistered(t *testing.T) {
 	// However, we can inspect the methods that would be called.
 
 	// Let's manually register the tool to test it (as Run does)
-	orch.AddFunctionTool(FunctionTool{
+	orch.AddFunctionTool(tools.FunctionTool{
 		Name: "DelegateTask",
 		Func: conv.delegateTask,
 	})
@@ -97,7 +98,7 @@ func TestConversation_ExecuteToolCall(t *testing.T) {
 	conv, _ := NewConversation(context.Background(), orch, NewAgent(nil, WithName("W")))
 
 	// Register a dummy tool on the orchestrator to test dispatch
-	orch.AddFunctionTool(FunctionTool{
+	orch.AddFunctionTool(tools.FunctionTool{
 		Name: "TestTool",
 		Func: func(args struct{ Val string `json:"val"` }) (string, error) {
 			return "Processed " + args.Val, nil

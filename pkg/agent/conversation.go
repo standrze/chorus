@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/openai/openai-go/v3"
+	"github.com/standrze/chorus/pkg/tools"
 )
 
 type Conversation struct {
@@ -63,13 +64,13 @@ type FinishArgs struct {
 
 func (c *Conversation) Run(objective string) (string, error) {
 	// Setup Orchestrator Tools
-	c.orchestrator.AddFunctionTool(FunctionTool{
+	c.orchestrator.AddFunctionTool(tools.FunctionTool{
 		Name:        "DelegateTask",
 		Description: "Delegate a task to a worker agent. Returns the worker's output.",
 		Func:        c.delegateTask,
 	})
 
-	c.orchestrator.AddFunctionTool(FunctionTool{
+	c.orchestrator.AddFunctionTool(tools.FunctionTool{
 		Name:        "CreatePlan",
 		Description: "Define the plan of execution.",
 		Func:        c.createPlan,
@@ -81,7 +82,7 @@ func (c *Conversation) Run(objective string) (string, error) {
 	finished := false
 	finalResult := ""
 
-	c.orchestrator.AddFunctionTool(FunctionTool{
+	c.orchestrator.AddFunctionTool(tools.FunctionTool{
 		Name:        "Finish",
 		Description: "Call this when the objective is met.",
 		Func: func(args FinishArgs) (string, error) {
@@ -108,16 +109,7 @@ func (c *Conversation) Run(objective string) (string, error) {
 		msg := choice.Message
 
 		// Add assistant message to history
-		// We must explicitly include ToolCalls for the API context to be valid for subsequent ToolMessages
-		assistantMsg := openai.AssistantMessage(msg.Content)
-		if len(msg.ToolCalls) > 0 {
-			toolCalls := []openai.ChatCompletionMessageToolCallUnionParam{}
-			for _, tc := range msg.ToolCalls {
-				toolCalls = append(toolCalls, tc.ToParam())
-			}
-			assistantMsg.OfAssistant.ToolCalls = toolCalls
-		}
-		c.orchestrator.Messages = append(c.orchestrator.Messages, assistantMsg)
+		c.orchestrator.Messages = append(c.orchestrator.Messages, msg.ToParam())
 
 		if len(msg.ToolCalls) == 0 {
 			// If Orchestrator just talks, maybe we should continue or stop?
@@ -133,9 +125,9 @@ func (c *Conversation) Run(objective string) (string, error) {
 			res, err := c.executeToolCall(toolCall)
 			if err != nil {
 				// Feed error back to agent
-				c.orchestrator.Messages = append(c.orchestrator.Messages, openai.ToolMessage(toolCall.ID, fmt.Sprintf("Error: %v", err)))
+				c.orchestrator.Messages = append(c.orchestrator.Messages, openai.ToolMessage(fmt.Sprintf("Error: %v", err), toolCall.ID))
 			} else {
-				c.orchestrator.Messages = append(c.orchestrator.Messages, openai.ToolMessage(toolCall.ID, res))
+				c.orchestrator.Messages = append(c.orchestrator.Messages, openai.ToolMessage(res, toolCall.ID))
 			}
 		}
 	}
