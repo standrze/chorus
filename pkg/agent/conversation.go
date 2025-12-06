@@ -55,7 +55,7 @@ func NewConversation(ctx context.Context, agents ...*Agent) (*Conversation, erro
 	// Let's use the orchestrator's client for the Summarize tool factory.
 	client := orchestrator.Client
 
-	standardTools := []FunctionTool{
+	standardTools := []tools.FunctionTool{
 		{
 			Name:        "WriteToFile",
 			Description: "Writes content to a file in the workspace. Overwrites if exists.",

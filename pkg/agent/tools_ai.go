@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openai/openai-go/v3"
+	"github.com/standrze/chorus/pkg/ai"
 )
 
 type SummarizeArgs struct {
@@ -14,7 +14,7 @@ type SummarizeArgs struct {
 // Summarize creates a temporary agent to summarize the given text.
 // It requires an OpenAI client. Since FunctionTool functions need to match a specific signature,
 // we'll return a closure that captures the client.
-func NewSummarizeTool(client *openai.Client) func(SummarizeArgs) (string, error) {
+func NewSummarizeTool(client ai.Client) func(SummarizeArgs) (string, error) {
 	return func(args SummarizeArgs) (string, error) {
 		ctx := context.Background()
 
