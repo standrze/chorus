@@ -41,12 +41,45 @@ func NewConversation(ctx context.Context, agents ...*Agent) (*Conversation, erro
 		return nil, fmt.Errorf("conversation requires at least 2 agents (1 orchestrator + 1 worker)")
 	}
 
-	return &Conversation{
+	conv := &Conversation{
 		ctx:          ctx,
 		agents:       agentMap,
 		orchestrator: orchestrator,
 		maxTurns:     20,
-	}, nil
+	}
+
+	// Inject standard tools into all agents
+	// We need the client to create the Summarize tool.
+	// We'll assume all agents share the same client or at least the orchestrator has one we can use.
+	// In the current NewAgent setup, each agent has its own client.
+	// Let's use the orchestrator's client for the Summarize tool factory.
+	client := orchestrator.Client
+
+	standardTools := []FunctionTool{
+		{
+			Name:        "WriteToFile",
+			Description: "Writes content to a file in the workspace. Overwrites if exists.",
+			Func:        WriteToFile,
+		},
+		{
+			Name:        "ReadFromFile",
+			Description: "Reads content from a file in the workspace.",
+			Func:        ReadFromFile,
+		},
+		{
+			Name:        "Summarize",
+			Description: "Summarizes the provided text.",
+			Func:        NewSummarizeTool(client),
+		},
+	}
+
+	for _, agent := range agentMap {
+		for _, tool := range standardTools {
+			agent.AddFunctionTool(tool)
+		}
+	}
+
+	return conv, nil
 }
 
 type DelegateArgs struct {
@@ -174,8 +207,25 @@ func (c *Conversation) delegateTask(args DelegateArgs) (string, error) {
 }
 
 func (c *Conversation) createPlan(args PlanArgs) (string, error) {
-	// Just verify the plan format or log it.
-	return fmt.Sprintf("Plan created with %d steps.", len(args.Steps)), nil
+	// Write plan to file
+	planContent := "Current Plan:\n"
+	for i, step := range args.Steps {
+		planContent += fmt.Sprintf("%d. %s\n", i+1, step)
+	}
+
+	writeArgs := WriteArgs{
+		Filename: "plan.txt", // Writing to workspace/plan.txt via WriteToFile logic implicitly or explicitly
+		Content:  planContent,
+	}
+
+	// We can reuse the WriteToFile logic, but WriteToFile expects to be called as a tool.
+	// We can just call the underlying logic if we want, or call WriteToFile directly since it's in the same package.
+	_, err := WriteToFile(writeArgs)
+	if err != nil {
+		return "", fmt.Errorf("failed to save plan: %w", err)
+	}
+
+	return fmt.Sprintf("Plan created with %d steps and saved to plan.txt.", len(args.Steps)), nil
 }
 
 func (c *Conversation) listAgentNames() string {
