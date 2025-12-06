@@ -10,6 +10,9 @@ import (
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/packages/param"
+	"github.com/standrze/chorus/pkg/ai"
+	"github.com/standrze/chorus/pkg/log"
+	"github.com/standrze/chorus/pkg/tools"
 )
 
 type Role string
@@ -22,7 +25,7 @@ const (
 type Agent struct {
 	Name            string
 	Role            Role
-	Client          *openai.Client
+	Client          ai.Client
 	Messages        []openai.ChatCompletionMessageParamUnion
 	Model           string
 	Tools           []openai.ChatCompletionToolUnionParam
@@ -60,7 +63,9 @@ func (a *Agent) Generate(ctx context.Context, options ...SendOption) (*openai.Ch
 		opt(a)
 	}
 
-	result, err := a.Client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
+	log.Debug("Agent Generating", "agent", a.Name, "model", a.Model, "msg_count", len(a.Messages))
+
+	result, err := a.Client.ChatCompletion(ctx, openai.ChatCompletionNewParams{
 		Model:           a.Model,
 		Messages:        a.Messages,
 		ReasoningEffort: a.ReasoningEffort,
@@ -99,6 +104,7 @@ func logTokenUsage(a *Agent) {
 // CallFunction executes a registered tool function by name, unmarshaling the JSON arguments.
 // It returns the result as a string or an error.
 func (a *Agent) CallFunction(name string, argsJSON string) (string, error) {
+	log.Debug("Calling Function", "agent", a.Name, "tool", name, "args", argsJSON)
 	if a.functions == nil {
 		return "", fmt.Errorf("no functions registered")
 	}
@@ -171,9 +177,9 @@ func (a *Agent) CallFunction(name string, argsJSON string) (string, error) {
 	return resStr, nil
 }
 
-func (a *Agent) AddFunctionTool(tool FunctionTool) {
+func (a *Agent) AddFunctionTool(tool tools.FunctionTool) {
 	if tool.Parameters == nil && tool.Func != nil {
-		schema, err := GenerateSchema(tool.Func)
+		schema, err := tools.GenerateSchema(tool.Func)
 		if err != nil {
 			panic(fmt.Sprintf("failed to generate schema for tool %s: %v", tool.Name, err))
 		}
@@ -233,13 +239,12 @@ func WithSeed(seed int) func(*Agent) {
 	}
 }
 
-func WithFunctionTools(tools ...FunctionTool) func(*Agent) {
+func WithFunctionTools(funcTools ...tools.FunctionTool) func(*Agent) {
 	union := []openai.ChatCompletionToolUnionParam{}
-	funcs := make(map[string]interface{})
 
-	for _, tool := range tools {
+	for _, tool := range funcTools {
 		if tool.Parameters == nil && tool.Func != nil {
-			schema, err := GenerateSchema(tool.Func)
+			schema, err := tools.GenerateSchema(tool.Func)
 			if err != nil {
 				panic(fmt.Sprintf("failed to generate schema for tool %s: %v", tool.Name, err))
 			}
@@ -264,8 +269,8 @@ func WithFunctionTools(tools ...FunctionTool) func(*Agent) {
 		if a.functions == nil {
 			a.functions = make(map[string]interface{})
 		}
-		for k, v := range funcs {
-			a.functions[k] = v
+		for _, tool := range funcTools {
+			a.functions[tool.Name] = tool.Func
 		}
 	}
 }
@@ -276,7 +281,7 @@ func WithRole(role Role) func(*Agent) {
 	}
 }
 
-func NewAgent(client *openai.Client, options ...func(*Agent)) *Agent {
+func NewAgent(client ai.Client, options ...func(*Agent)) *Agent {
 	agent := &Agent{
 		Messages:        []openai.ChatCompletionMessageParamUnion{},
 		Client:          client,

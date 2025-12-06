@@ -10,10 +10,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	app "github.com/standrze/chorus/internal"
+	clog "github.com/standrze/chorus/pkg/log"
 )
 
 // rootCmd represents the base command when called without any subcommands
 var cfg app.Config
+var debug bool
 
 var rootCmd = &cobra.Command{
 	Use:   "chorus",
@@ -27,9 +29,12 @@ to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
+		clog.SetDebug(debug)
+		cfg.Debug = debug
 		err := app.Start(&cfg)
 		if err != nil {
-			log.Fatalf("Failed to start app: %v", err)
+			clog.Error("Failed to start app", "error", err)
+			os.Exit(1)
 		}
 	},
 }
@@ -58,5 +63,5 @@ func init() {
 	}
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().BoolVar(&debug, "debug", false, "Enable debug logging")
 }
