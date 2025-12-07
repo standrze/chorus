@@ -1,4 +1,4 @@
-package ai
+package client
 
 import (
 	"context"
@@ -15,15 +15,8 @@ type OpenAIClient struct {
 	client *openai.Client
 }
 
-func NewClient(baseURL, apiKey string) *OpenAIClient {
-	opts := []option.RequestOption{}
-	if baseURL != "" {
-		opts = append(opts, option.WithBaseURL(baseURL))
-	}
-	if apiKey != "" {
-		opts = append(opts, option.WithAPIKey(apiKey))
-	}
-	client := openai.NewClient(opts...)
+func NewClient(baseURL string) *OpenAIClient {
+	client := openai.NewClient(option.WithBaseURL(baseURL))
 	return &OpenAIClient{
 		client: &client,
 	}

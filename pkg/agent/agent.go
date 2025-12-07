@@ -4,12 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"reflect"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/packages/param"
-	"github.com/standrze/chorus/pkg/ai"
+	"github.com/standrze/chorus/pkg/client"
 	"github.com/standrze/chorus/pkg/log"
 	"github.com/standrze/chorus/pkg/tools"
 )
@@ -24,7 +23,7 @@ const (
 type Agent struct {
 	Name            string
 	Role            Role
-	Client          ai.Client
+	Client          client.Client
 	Messages        []openai.ChatCompletionMessageParamUnion
 	Model           string
 	Tools           []openai.ChatCompletionToolUnionParam
@@ -62,7 +61,7 @@ func (a *Agent) Generate(ctx context.Context, options ...SendOption) (*openai.Ch
 	return result, err
 }
 
-func logTokenUsage(a *Agent) {
+/*func logTokenUsage(a *Agent) {
 	f, err := os.OpenFile("token_usage.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to open token_usage.log: %v\n", err)
@@ -70,13 +69,14 @@ func logTokenUsage(a *Agent) {
 	}
 	defer f.Close()
 
-	/*entry := fmt.Sprintf("[%s] Agent: %s, Role: %s, Total: %d (Prompt: %d, Completion: %d)\n",
+	entry := fmt.Sprintf("[%s] Agent: %s, Role: %s, Total: %d (Prompt: %d, Completion: %d)\n",
 		time.Now().Format(time.RFC3339), a.Name, a.Role, a.TotalTokens, a.PromptTokens, a.CompletionTokens)
 
 	if _, err := f.WriteString(entry); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to write to token_usage.log: %v\n", err)
-	}*/
+	}
 }
+*/
 
 // CallFunction executes a registered tool function by name, unmarshaling the JSON arguments.
 // It returns the result as a string or an error.
@@ -257,7 +257,7 @@ func WithRole(role Role) func(*Agent) {
 	}
 }
 
-func NewAgent(client ai.Client, options ...func(*Agent)) *Agent {
+func NewAgent(client client.Client, options ...func(*Agent)) *Agent {
 	agent := &Agent{
 		Messages:        []openai.ChatCompletionMessageParamUnion{},
 		Client:          client,

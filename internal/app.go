@@ -11,12 +11,12 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/openai/openai-go/v3"
 	chorus "github.com/standrze/chorus/pkg/agent"
-	"github.com/standrze/chorus/pkg/ai"
+	"github.com/standrze/chorus/pkg/client"
 	"github.com/standrze/chorus/pkg/tools"
 )
 
 type App struct {
-	client ai.Client
+	client client.Client
 	agents []*chorus.Agent
 }
 
@@ -28,11 +28,11 @@ type AgentConfig struct {
 }
 
 type Config struct {
-	BaseURL    string             `mapstructure:"base_url"`
-	APIKey     string             `mapstructure:"api_key"`
-	Agents     []AgentConfig      `mapstructure:"agents"`
-	MCPServers []MCPServerConfig  `mapstructure:"mcp_servers"`
-	Debug      bool               `mapstructure:"-"`
+	BaseURL    string            `mapstructure:"base_url"`
+	APIKey     string            `mapstructure:"api_key"`
+	Agents     []AgentConfig     `mapstructure:"agents"`
+	MCPServers []MCPServerConfig `mapstructure:"mcp_servers"`
+	Debug      bool              `mapstructure:"-"`
 }
 
 type MCPServerConfig struct {
@@ -43,7 +43,7 @@ type MCPServerConfig struct {
 func Start(cfg *Config) error {
 	app := &App{}
 
-	app.client = ai.NewClient(cfg.BaseURL, cfg.APIKey)
+	app.client = client.NewClient(cfg.BaseURL)
 
 	ctx := context.Background()
 
